@@ -201,10 +201,14 @@ class AioRedisDriver(BaseDriver):
         self.ssl_context = get_ssl_context(self.connector.params, ssl_server=False)
         conn_name = str(uuid.uuid4())
         
-        redis = await aioredis.create_redis(
-                    (host, port),
-                    ssl=self.ssl_context
-                    )
+        redis = await aioredis.from_url(
+                    f"redis://{host}:{port}",
+                )
+
+        # redis = await aioredis.create_redis(
+        #             (host, port),
+        #             ssl=self.ssl_context
+        #             )
         
         # redis = await aioredis.from_url(
         #             f"redis://{host}:{port}",
@@ -222,10 +226,14 @@ class AioRedisDriver(BaseDriver):
     async def _listen(self, host, port, channel):
         self.ssl_context = get_ssl_context(self.connector.params, ssl_server=True)
         
-        redis = await aioredis.create_redis(
-                    (host, port),
-                    ssl=self.ssl_context
-        )
+        # redis = await aioredis.create_redis(
+        #             (host, port),
+        #             ssl=self.ssl_context
+        # )
+        
+        redis = await aioredis.from_url(
+                    f"redis://{host}:{port}",
+                )        
         
         # redis = await aioredis.create_redis(
         #             (host, port),
