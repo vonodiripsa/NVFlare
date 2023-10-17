@@ -167,3 +167,5 @@ audit.log
 # python
 __pycache__
 .pyc
+dump.rdb
+.gitignore
