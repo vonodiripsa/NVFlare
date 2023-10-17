@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import os
 import logging
 from concurrent.futures import CancelledError
 import threading
@@ -28,6 +29,7 @@ from nvflare.fuel.f3.drivers.connector_info import ConnectorInfo, Mode
 from nvflare.fuel.f3.drivers.driver_params import DriverCap, DriverParams
 from nvflare.fuel.f3.drivers.net_utils import get_ssl_context
 from nvflare.fuel.f3.drivers.net_utils import get_tcp_urls
+from nvflare.fuel.f3.drivers.net_utils import parse_url
 from nvflare.security.logging import secure_format_exception
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -187,10 +189,19 @@ class AioRedisDriver(BaseDriver):
             log.debug(f"Connector {self.connector} is cancelled")
 
     async def _async_run(self, mode: Mode):
-        params = self.connector.params
+        
+        var_name = "NVFLARE_REDIS_URL_" + self.connector.params.get("server_name", "None").replace("-", "_").upper()
+        url = os.getenv(var_name)
+        
+        if url:       
+            params = parse_url(url)  
+        else:
+            params = self.connector.params
+            
         host = params.get(DriverParams.HOST.value)
         port = params.get(DriverParams.PORT.value)
         channel = "channel_" + params.get("channel")
+        
         if mode == Mode.ACTIVE:  # client
             coroutine = self._connect(host, port, channel)
         else:  # server
@@ -221,7 +232,7 @@ class AioRedisDriver(BaseDriver):
         server_queue = conn_name + "_in"
         client_queue = conn_name + "_out"
         await self._create_connection(server_queue, client_queue, host, port)
-        redis.close()
+        await redis.close()
 
     async def _listen(self, host, port, channel):
         self.ssl_context = get_ssl_context(self.connector.params, ssl_server=True)
@@ -260,10 +271,14 @@ class AioRedisDriver(BaseDriver):
 
     async def _create_connection(self, server_queue, client_queue, host, port):
         
-        redis = await aioredis.create_redis(
-                    (host, port),
-                    ssl=self.ssl_context
-        )
+        redis = await aioredis.from_url(
+                    f"redis://{host}:{port}",
+                )           
+        
+        # redis = await aioredis.create_redis(
+        #             (host, port),
+        #             ssl=self.ssl_context
+        # )
         
         # redis = await aioredis.create_redis(
         #     (host, port),
