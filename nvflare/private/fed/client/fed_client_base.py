@@ -93,7 +93,7 @@ class FederatedClientBase:
         self.cell = cell
         self.net_agent = None
         self.args = args
-        self.engine_create_timeout = client_args.get("engine_create_timeout", 15.0)
+        self.engine_create_timeout = client_args.get("engine_create_timeout", 1500.0)
         self.cell_check_frequency = client_args.get("cell_check_frequency", 0.005)
 
         self.communicator = Communicator(
@@ -200,6 +200,9 @@ class FederatedClientBase:
             }
         else:
             credentials = {}
+            
+        credentials["server_name"] = self.client_name
+        
         self.cell = Cell(
             fqcn=fqcn,
             root_url=scheme + "://" + location,

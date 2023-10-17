@@ -161,6 +161,9 @@ class BaseServer(ABC):
             }
         else:
             credentials = {}
+            
+        credentials["server_name"] = "server"
+        
         parent_url = None
 
         parts = target.split(":")
