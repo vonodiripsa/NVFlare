@@ -165,7 +165,6 @@ class AioRedisDriver(BaseDriver):
         self._run(connector, Mode.ACTIVE)
 
     def shutdown(self):
-        self.redis.close()
         self.stopping = True
         # self.redis.wait_closed()
         # self.close_all()
@@ -200,7 +199,7 @@ class AioRedisDriver(BaseDriver):
             
         host = params.get(DriverParams.HOST.value)
         port = params.get(DriverParams.PORT.value)
-        channel = "channel_" + params.get("channel")
+        channel = "channel_" + params.get("channel", "nvflare")
         
         if mode == Mode.ACTIVE:  # client
             coroutine = self._connect(host, port, channel)
