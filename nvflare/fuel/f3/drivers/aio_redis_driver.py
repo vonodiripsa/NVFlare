@@ -14,6 +14,8 @@
 import asyncio
 import os
 import logging
+import time
+from ast import literal_eval
 from concurrent.futures import CancelledError
 import threading
 from typing import Any, Dict, List
@@ -30,9 +32,12 @@ from nvflare.fuel.f3.drivers.driver_params import DriverCap, DriverParams
 from nvflare.fuel.f3.drivers.net_utils import get_ssl_context
 from nvflare.fuel.f3.drivers.net_utils import get_tcp_urls
 from nvflare.fuel.f3.drivers.net_utils import parse_url
+from nvflare.fuel.utils import fobs
 from nvflare.security.logging import secure_format_exception
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+
+CONN_TIMEOUT = 10
 
 log = logging.getLogger(__name__)
 
@@ -210,10 +215,6 @@ class AioRedisDriver(BaseDriver):
     async def _connect(self, host, port, channel):
         self.ssl_context = get_ssl_context(self.connector.params, ssl_server=False)
         conn_name = str(uuid.uuid4())
-        
-        redis = await aioredis.from_url(
-                    f"redis://{host}:{port}",
-                )
 
         # redis = await aioredis.create_redis(
         #             (host, port),
@@ -226,12 +227,35 @@ class AioRedisDriver(BaseDriver):
         #             # ssl=self.ssl_context,
         #             # db=0
         #         )
-        
-        await redis.rpush(channel, conn_name)
-        server_queue = conn_name + "_in"
-        client_queue = conn_name + "_out"
-        await self._create_connection(server_queue, client_queue, host, port)
-        await redis.close()
+
+        redis = None
+        try:
+            redis = await aioredis.from_url(
+                f"redis://{host}:{port}",
+            )
+
+            timestamp = time.time()
+            await redis.rpush(channel, fobs.dumps((conn_name, timestamp)))
+
+            # Wait till server picks up the connection before a connection is created
+            while not self.stopping:
+                if time.time() - timestamp > CONN_TIMEOUT:
+                    raise CommError(CommError.ERROR, f"Connection {conn_name} timed out after {CONN_TIMEOUT} seconds")
+
+                connections = await redis.lrange(channel, 0, -1)
+                if conn_name in (fobs.loads(x)[0] for x in connections):
+                    time.sleep(0.1)
+                    continue
+                else:
+                    server_queue = conn_name + "_in"
+                    client_queue = conn_name + "_out"
+                    await self._create_connection(server_queue, client_queue, host, port)
+                    break
+        except Exception as ex:
+            log.error(f"Redis error for connection {conn_name}: {ex}")
+        finally:
+            if redis:
+                await redis.close()
 
     async def _listen(self, host, port, channel):
         self.ssl_context = get_ssl_context(self.connector.params, ssl_server=True)
@@ -240,33 +264,44 @@ class AioRedisDriver(BaseDriver):
         #             (host, port),
         #             ssl=self.ssl_context
         # )
-        
-        redis = await aioredis.from_url(
-                    f"redis://{host}:{port}",
-                )        
-        
-        # redis = await aioredis.create_redis(
-        #             (host, port),
-        #             ssl=self.ssl_context
-        #             )        
-        
-        # redis = await aioredis.from_url(
-        #     f"rediss://{host}:{port}"
-        #     # encoding="utf-8",
-        #     # ssl=self.ssl_context,
-        #     # db=0
-        # )
-        while not self.stopping:
-            value = await redis.blpop(channel, timeout=1)
-            if not value:
-                continue
-            _, conn_name = value
 
-            conn_name = str(conn_name, "UTF-8")
-            # The listener side should reverse in/out
-            server_queue = conn_name + "_out"
-            client_queue = conn_name + "_in"
-            await self._create_connection(server_queue, client_queue, host, port)
+        redis = None
+        conn_name = "None"
+        try:
+            redis = await aioredis.from_url(
+                        f"redis://{host}:{port}",
+                    )
+
+            # redis = await aioredis.create_redis(
+            #             (host, port),
+            #             ssl=self.ssl_context
+            #             )
+
+            # redis = await aioredis.from_url(
+            #     f"rediss://{host}:{port}"
+            #     # encoding="utf-8",
+            #     # ssl=self.ssl_context,
+            #     # db=0
+            # )
+            while not self.stopping:
+                value = await redis.blpop(channel, timeout=1)
+                if not value:
+                    continue
+                _, buf = value
+                timestamp, conn_name = fobs.loads(buf)
+                if time.time() - timestamp > CONN_TIMEOUT:
+                    log.debug(f"Connection {conn_name} is too old, it has expired after {CONN_TIMEOUT} seconds")
+                    continue
+
+                # The listener side should reverse in/out
+                server_queue = conn_name + "_out"
+                client_queue = conn_name + "_in"
+                await self._create_connection(server_queue, client_queue, host, port)
+        except Exception as ex:
+            log.error(f"Error listening for connection {conn_name}: {ex}")
+        finally:
+            if redis:
+                await redis.close()
 
     async def _create_connection(self, server_queue, client_queue, host, port):
         
