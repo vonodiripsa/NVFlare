@@ -29,6 +29,7 @@ from nvflare.fuel.f3.drivers.net_utils import parse_url
 from nvflare.fuel.utils import fobs
 from nvflare.security.logging import secure_format_exception
 
+# Connection timeout
 CONN_TIMEOUT = 10
 
 log = logging.getLogger(__name__)
