@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 site_name=site-2
-sp_end_point=localhost:8002:8003
+sp_end_point=localhost:6379:8003
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 mkdir -p $DIR/../transfer
 if [ $# -eq 0 ] ; then

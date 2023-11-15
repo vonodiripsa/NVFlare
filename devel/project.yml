@@ -7,7 +7,7 @@ participants:
   - name: server1
     type: server
     org: nvidia
-    fed_learn_port: 8002
+    fed_learn_port: 6379
     admin_port: 8003
   - name: site-1
     type: client
@@ -53,7 +53,7 @@ builders:
         # 
         overseer_exists: false
         args:
-          sp_end_point: server1:8002:8003
+          sp_end_point: server1:6379:8003
 
   - path: nvflare.lighter.impl.cert.CertBuilder
   - path: nvflare.lighter.impl.signature.SignatureBuilder

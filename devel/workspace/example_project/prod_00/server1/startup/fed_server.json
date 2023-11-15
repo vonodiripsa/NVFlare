@@ -4,7 +4,7 @@
     {
       "name": "example_project",
       "service": {
-        "target": "localhost:6379?channel=server1",
+        "target": "server1:6379",
         "scheme": "redis"
       },
       "admin_host": "server1",
@@ -17,7 +17,7 @@
   "overseer_agent": {
     "path": "nvflare.ha.dummy_overseer_agent.DummyOverseerAgent",
     "args": {
-      "sp_end_point": "server1:8002:8003"
+      "sp_end_point": "server1:6379:8003"
     }
   }
 }
