@@ -1,0 +1,25 @@
+{
+    "name": "hello-numpy-sag",
+    "resource_spec": {},
+    "min_clients": 1,
+    "deploy_map": {
+        "app": [
+            "@ALL"
+        ]
+    },
+    "job_folder_name": "hello-numpy-sag",
+    "submitter_name": "admin",
+    "submitter_org": "global",
+    "submitter_role": "super",
+    "job_id": "565604a2-e101-4c5c-96b9-7ea2d684f84a",
+    "submit_time": 1700250870.8922365,
+    "submit_time_iso": "2023-11-17T19:54:30.892236+00:00",
+    "start_time": "",
+    "duration": "N/A",
+    "status": "SUBMITTED",
+    "schedule_history": [
+        "2023-11-17 19:54:31: scheduled"
+    ],
+    "schedule_count": 1,
+    "last_schedule_time": 1700250871.3499837
+}
