@@ -132,7 +132,7 @@ class AioRedisDriver(BaseDriver):
     def get_urls(scheme: str, resources: dict) -> (str, str):
         secure = resources.get(DriverParams.SECURE)
         if secure:
-            scheme = "rediss"
+            scheme = "redis"
         return get_tcp_urls(scheme, resources)
 
     def _run(self, connector: ConnectorInfo, mode: Mode):
