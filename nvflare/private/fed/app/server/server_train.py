@@ -98,8 +98,6 @@ def main():
         deployer = conf.deployer
         secure_train = conf.cmd_vars.get("secure_train", False)
         
-        secure_train = False
-
         security_init(
             secure_train=secure_train,
             site_org=conf.site_org,

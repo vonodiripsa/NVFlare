@@ -1,0 +1,25 @@
+{
+    "name": "hello-numpy-sag",
+    "resource_spec": {},
+    "min_clients": 2,
+    "deploy_map": {
+        "app": [
+            "@ALL"
+        ]
+    },
+    "job_folder_name": "hello-numpy-sag",
+    "submitter_name": "admin@nvidia.com",
+    "submitter_org": "nvidia",
+    "submitter_role": "project_admin",
+    "job_id": "57b207e1-e9c8-4ee3-809a-be64e884d211",
+    "submit_time": 1701281266.3426926,
+    "submit_time_iso": "2023-11-29T18:07:46.342693+00:00",
+    "start_time": "",
+    "duration": "N/A",
+    "status": "SUBMITTED",
+    "schedule_history": [
+        "2023-11-29 18:07:46: scheduled"
+    ],
+    "schedule_count": 1,
+    "last_schedule_time": 1701281266.9191155
+}
