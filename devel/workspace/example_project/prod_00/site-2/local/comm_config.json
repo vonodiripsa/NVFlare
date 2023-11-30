@@ -1,0 +1,5 @@
+{
+    "redis": {
+        "url": "redis://:4LkugQidiEnRjRgRte6svcXFI6Sho2jIPAzCaFwVJCg=@nvflare.redis.cache.windows.net:6379"
+    }
+}
