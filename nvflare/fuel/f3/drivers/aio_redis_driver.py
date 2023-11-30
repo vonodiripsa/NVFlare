@@ -18,6 +18,8 @@ from typing import Any, Dict, List
 from asyncio import CancelledError, IncompleteReadError
 import uuid
 import aioredis
+from nvflare.fuel.f3.comm_config import CommConfigurator
+
 from nvflare.fuel.f3.connection import BytesAlike, Connection
 from nvflare.fuel.f3.comm_error import CommError
 from nvflare.fuel.f3.drivers.aio_context import AioContext
@@ -104,6 +106,15 @@ class AioRedisDriver(BaseDriver):
         self.ssl_context = None
         self.stopping = False
         self.futures = []
+        self.url = None
+
+        configurator = CommConfigurator()
+        config = configurator.get_config()
+        if config:
+            redis_params = config.get("redis")
+            if redis_params:
+                self.url = redis_params.get("url")
+                log.debug(f"Redis URL: {self.url}")
 
     @staticmethod
     def supported_transports() -> List[str]:
@@ -146,33 +157,29 @@ class AioRedisDriver(BaseDriver):
 
     async def _async_run(self, mode: Mode):
         
-        var_name = "NVFLARE_REDIS_URL_" + self.connector.params.get("server_name", "None").replace("-", "_").upper()
-        url = os.getenv(var_name)
-        
-        if url:       
-            params = parse_url(url)  
+        if self.url:
+            params = parse_url(self.url)
+            redis_url = self.url
         else:
             params = self.connector.params
-            
-        host = params.get(DriverParams.HOST.value)
-        port = params.get(DriverParams.PORT.value)
+            host = params.get(DriverParams.HOST.value)
+            port = params.get(DriverParams.PORT.value)
+            redis_url = f"redis://{host}:{port}"
+
         channel = "channel_" + params.get("channel", "nvflare")
         
         if mode == Mode.ACTIVE:  # client
-            coroutine = self._connect(host, port, channel)
+            coroutine = self._connect(redis_url, channel)
         else:  # server
-            coroutine = self._listen(host, port, channel)
+            coroutine = self._listen(redis_url, channel)
         await coroutine
 
-    async def _connect(self, host, port, channel):
+    async def _connect(self, url, channel):
 
         conn_name = str(uuid.uuid4())
         redis = None
         try:
-            redis = await aioredis.from_url(
-                f"redis://{host}:{port}",
-            )
-
+            redis = await aioredis.from_url(url)
             timestamp = time.time()
             await redis.rpush(channel, fobs.dumps((conn_name, timestamp)))
 
@@ -188,7 +195,7 @@ class AioRedisDriver(BaseDriver):
                 else:
                     read_queue = conn_name + "_A"
                     write_queue = conn_name + "_B"
-                    await self._create_connection(read_queue, write_queue, host, port)
+                    await self._create_connection(redis, read_queue, write_queue)
                     break
         except Exception as ex:
             log.error(f"Redis error for connection {conn_name}: {ex}")
@@ -196,15 +203,12 @@ class AioRedisDriver(BaseDriver):
             if redis:
                 await redis.close()
 
-    async def _listen(self, host, port, channel):
+    async def _listen(self, url, channel):
 
         redis = None
         conn_name = "None"
         try:
-            redis = await aioredis.from_url(
-                        f"redis://{host}:{port}",
-                    )
-
+            redis = await aioredis.from_url(url)
             while not self.stopping:
                 value = await redis.blpop(channel, timeout=1)
                 if not value:
@@ -218,7 +222,7 @@ class AioRedisDriver(BaseDriver):
                 # The listener side should reverse read/write queue
                 read_queue = conn_name + "_B"
                 write_queue = conn_name + "_A"
-                coro = self._create_connection(read_queue, write_queue, host, port)
+                coro = self._create_connection(redis, read_queue, write_queue)
                 loop = self.aio_ctx.get_event_loop()
                 future = loop.create_task(coro)
                 self.futures.append(future)
@@ -229,17 +233,13 @@ class AioRedisDriver(BaseDriver):
             if redis:
                 await redis.close()
 
-    async def _create_connection(self, read_queue, write_queue, host, port):
+    async def _create_connection(self, redis, read_queue, write_queue):
 
         try:
-            redis = await aioredis.from_url(
-                        f"redis://{host}:{port}",
-                    )
-
             conn = RedisConnection(redis, read_queue, write_queue, self.aio_ctx, self.connector)
             self.add_connection(conn)
             await conn.read_loop()
             self.close_connection(conn)
         except Exception as ex:
-            log.error("Connection {conn} closed due to error: {ex")
+            log.error(f"Connection {conn} closed due to error: {ex}")
   
